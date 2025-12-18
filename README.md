@@ -2,7 +2,8 @@
 
 ### 機能
 
-- OSCで`/input/useRight`をひたすらトグルする(0と1を交互書き込み)
+- OSCで`/input/useRight`に「押し込み → 指定時間ホールド → 離す」を連続送信
+- クリック間隔とホールド時間を任意に変更可能
 - OSC送信先のポートを変更可能
 - VRChat Quick LauncherのOSCに入力する値を自動生成
 
@@ -14,7 +15,7 @@
 1. VRChat Quick LauncherのOSCに`Quick Launcher OSC setting value`の文字列を張り付けて起動します
    - デフォルトのポート番号(9000番)のままの場合は何も入力しなくてOKです
 
-1. 送信間隔を決めて`Send OSC`にチェックを入れている間、OSCで`/input/UseRIght`をトグルして送信し続けます
+1. クリック間隔とホールド時間を決めて`Send OSC`にチェックを入れている間、OSCで`/input/UseRight`の押下と離しを確実に送信し続けます
 
 ### 注意事項
 

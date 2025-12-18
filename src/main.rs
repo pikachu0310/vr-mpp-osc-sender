@@ -11,12 +11,14 @@ use rosc::{OscMessage, OscPacket, OscType, encoder};
 #[derive(Default)]
 struct AppState {
     interval_ms: u64,
+    hold_ms: u64,
     is_sending: bool,
     dest_port: u16,
 }
 
 struct OscSenderApp {
     interval_ms: u64,
+    hold_ms: u64,
     checked: bool,
     port: u16,
     state: Arc<Mutex<AppState>>,
@@ -26,6 +28,7 @@ impl OscSenderApp {
     fn new(_: &eframe::CreationContext<'_>) -> Self {
         let state = Arc::new(Mutex::new(AppState {
             interval_ms: 1000,
+            hold_ms: 80,
             is_sending: false,
             dest_port: 9000,
         }));
@@ -34,31 +37,41 @@ impl OscSenderApp {
         thread::spawn(move || {
             let socket = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind UDP socket");
 
-            let mut toggle = 0;
             let mut prev_sending = false;
 
             loop {
-                let (interval, sending, port) = {
+                let (interval, hold, sending, port) = {
                     let state = cloned_state.lock().unwrap();
-                    (state.interval_ms, state.is_sending, state.dest_port)
+                    (
+                        state.interval_ms,
+                        state.hold_ms,
+                        state.is_sending,
+                        state.dest_port,
+                    )
                 };
 
                 if sending {
-                    send_osc(&socket, port, toggle);
-                    toggle = 1 - toggle;
-                } else if prev_sending {
-                    send_osc(&socket, port, 0);
-                    toggle = 0;
+                    send_click(&socket, port, hold);
+                    prev_sending = true;
+
+                    let rest_ms = interval.saturating_sub(hold).max(1);
+                    thread::sleep(Duration::from_millis(rest_ms));
+                    continue;
+                }
+
+                if prev_sending {
+                    send_value(&socket, port, 0);
                 }
 
                 prev_sending = sending;
 
-                thread::sleep(Duration::from_millis((interval / 2).max(1)));
+                thread::sleep(Duration::from_millis(interval.max(1)));
             }
         });
 
         Self {
             interval_ms: 1000,
+            hold_ms: 80,
             checked: false,
             port: 9000,
             state,
@@ -84,7 +97,13 @@ impl OscSenderApp {
     }
 }
 
-fn send_osc(socket: &UdpSocket, port: u16, value: i32) {
+fn send_click(socket: &UdpSocket, port: u16, hold_ms: u64) {
+    send_value(socket, port, 1);
+    thread::sleep(Duration::from_millis(hold_ms.max(1)));
+    send_value(socket, port, 0);
+}
+
+fn send_value(socket: &UdpSocket, port: u16, value: i32) {
     let msg = OscMessage {
         addr: "/input/UseRight".to_string(),
         args: vec![OscType::Int(value)],
@@ -101,11 +120,21 @@ impl eframe::App for OscSenderApp {
             ui.heading("OSC Sender");
 
             if ui
-                .add(egui::Slider::new(&mut self.interval_ms, 10..=2000).text("Interval (ms)"))
+                .add(
+                    egui::Slider::new(&mut self.interval_ms, 10..=2000).text("Click interval (ms)"),
+                )
                 .changed()
             {
                 let mut state = self.state.lock().unwrap();
                 state.interval_ms = self.interval_ms;
+            }
+
+            if ui
+                .add(egui::Slider::new(&mut self.hold_ms, 10..=500).text("Hold duration (ms)"))
+                .changed()
+            {
+                let mut state = self.state.lock().unwrap();
+                state.hold_ms = self.hold_ms;
             }
 
             if ui.checkbox(&mut self.checked, "Send OSC").changed() {
