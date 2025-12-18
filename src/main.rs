@@ -28,7 +28,7 @@ impl OscSenderApp {
     fn new(_: &eframe::CreationContext<'_>) -> Self {
         let state = Arc::new(Mutex::new(AppState {
             interval_ms: 1000,
-            hold_ms: 80,
+            hold_ms: 200,
             is_sending: false,
             dest_port: 9000,
         }));
@@ -71,7 +71,7 @@ impl OscSenderApp {
 
         Self {
             interval_ms: 1000,
-            hold_ms: 80,
+            hold_ms: 200,
             checked: false,
             port: 9000,
             state,
@@ -106,7 +106,7 @@ fn send_click(socket: &UdpSocket, port: u16, hold_ms: u64) {
 fn send_value(socket: &UdpSocket, port: u16, value: i32) {
     let msg = OscMessage {
         addr: "/input/UseRight".to_string(),
-        args: vec![OscType::Int(value)],
+        args: vec![OscType::Float(value as f32)],
     };
     if let Ok(buf) = encoder::encode(&OscPacket::Message(msg)) {
         let addr = format!("127.0.0.1:{}", port);
@@ -130,7 +130,7 @@ impl eframe::App for OscSenderApp {
             }
 
             if ui
-                .add(egui::Slider::new(&mut self.hold_ms, 10..=500).text("Hold duration (ms)"))
+                .add(egui::Slider::new(&mut self.hold_ms, 10..=1000).text("Hold duration (ms)"))
                 .changed()
             {
                 let mut state = self.state.lock().unwrap();
